@@ -1,4 +1,4 @@
-﻿# ==== Helper Function definition ====
+# ==== Helper Function definition ====
 
 function SetRegValue {
     Param (
@@ -8,7 +8,11 @@ function SetRegValue {
         [string]$data
     )
     $fullPath = "Registry::$path"
-    Set-ItemProperty -Path $fullPath -Name $name -Value $data -ErrorAction Stop
+    try {
+        Set-ItemProperty -Path $fullPath -Name $name -Value $data -ErrorAction Stop }
+    catch {
+        Write-Host "`t[-] Cannot set registry value $path because path not found..." -ForegroundColor Red
+    }
 }
 
 function CheckRegValue {
@@ -54,7 +58,12 @@ function hiveBackup {
 		Write-Host "[!] Running in Audit Only mode. Either delete file or wait a minute for different timestamp!" -ForegroundColor Yellow
 		Clear-Variable -Scope 1 -Name "configure"
 	} Catch {
-		reg export $hivePath $backup_path
+        try {
+		    reg export $hivePath $backup_path }
+        catch {
+            Write-Host "`t[-] Cannot backup $regpath.." -ForegroundColor Red
+
+        }
 	}
 }
 
@@ -85,7 +94,7 @@ if (!$configure) {Write-Host "`n`n`t++++ Running in Audit Only Mode! ++++" -Fore
 
 # ==== LSA settings start ====
 
-Write-Host "`n`n==== LSA ====`n"
+Write-Host "`n`n==== LSA checks start ====`n"
 $reg_path = "HKLM\SYSTEM\CurrentControlSet\Control\Lsa"
 if ($configure) {hiveBackup -prefix "LSA" -hivePath $reg_path}
 
@@ -93,7 +102,8 @@ if ($configure) {hiveBackup -prefix "LSA" -hivePath $reg_path}
 RegistryHardening -reg_path $reg_path -name "TurnOffAnonymousBlock" `
 -description "Verifying anonymous SID/Name translation"-val_should "1"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Allow anonymous SID/Name translation" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork access: Allow anonymous SID/Name translation" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Disabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -101,7 +111,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "RestrictAnonymous" -description `
 "Restrict anonymous access" -val_should "1"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Restrict anonymous access to Named Pipes and Shares" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork access: Restrict anonymous access to Named Pipes and Shares" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -109,7 +120,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "RestrictAnonymousSAM" -description `
 "Restrict SAM anonymous access" -val_should "1"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Do not allow anonymous enumeration of SAM accounts and shares" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork access: Do not allow anonymous enumeration of SAM accounts and shares" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -117,7 +129,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "LMCompatibilityLevel" -description `
 "Verifying if NTLMv2 only is enabled" -val_should "5"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network security: LAN Manager authentication level" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork security: LAN Manager authentication level" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Send NTLMv2 response only. Refuse LM & NTLM" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -125,7 +138,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "EveryoneIncludesAnonymous" -val_should "0" `
 -description "Verifying if system is configured to give anonymous users Everyone rights" 
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Let everyone permissions apply to anonymous users" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork access: Let everyone permissions apply to anonymous users" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Disabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -133,7 +147,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "NoLMHash" -val_should "1" `
 -description "Verifying if LM hash is disabled"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network security: Do not store LAN Manager hash value on next password changes" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork security: Do not store LAN Manager hash value on next password changes" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -141,23 +156,26 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "DisableRestrictedAdmin" -val_should "0" `
 -description "Verifying if Rstricted Admin mode ir required"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Administrative Templates\System\Credentials Delegation\Restrict delegation of credentials to remote servers" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Administrative Templates\System\Credentials Delegation\" -ForegroundColor Cyan
+Write-Host "`t`tRestrict delegation of credentials to remote servers" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
 # ========================================================================
 # ==== Lan Man settings start ====
 
-Write-Host "`n`n==== LanMan ====`n"
+Write-Host "`n`n==== Lan Man checks start ====`n"
 $reg_path = "HKLM\System\CurrentControlSet\Services\LanManServer\Parameters"
 if ($configure) {hiveBackup -prefix "LANMAN_srv" -hivePath $reg_path}
 
 RegistryHardening -reg_path $reg_path -name "RestrictNullSessAccess" -val_should "1" `
 -description "Restrict anonymous access to Named Pipes and Shares"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Network access: Restrict anonymous access to Named Pipes and Shares" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tNetwork access: Restrict anonymous access to Named Pipes and Shares" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
+
 
 RegistryHardening -reg_path $reg_path -name "SMB1" -val_should "0" `
 -description "Verify if SMBv1 is disabled"
@@ -171,30 +189,31 @@ if ($configure) {hiveBackup -prefix "LANMAN_wrkst" -hivePath $reg_path}
 RegistryHardening -reg_path $reg_path -name "EnablePlainTextPassword" -val_should "0" `
 -description "Do not allow unencrypted password to connect to third-party SMB servers"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\Microsoft network client: Send unencrypted password to third-party SMB servers" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tMicrosoft network client: Send unencrypted password to third-party SMB servers" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Disabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
-$reg_path = "HKLM\System\CurrentControlSet\Services\LanmanWorkstation"
 RegistryHardening -reg_path $reg_path -name "AllowInsecureGuestAuth" -val_should "0" `
 -description "Do not allow unauthenticated access to shared folders.`nPrevents exploitation vectors from SMB like: rundll32 \\evilshare\evil.dll,0"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Adminsitrative Templates\Lanman Workstation\Enable insecure guest logons" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Adminsitrative Templates\Network\Lanman Workstation\" -ForegroundColor Cyan
+Write-Host "`t`tEnable insecure guest logons" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Disabled or Not Configured" -ForegroundColor Cyan
 $localPolicy = $false}
-
 
 # ==========================================================
 # ==== UAC settings start ====
 
-Write-Host "`n`n==== UAC ====`n"
+Write-Host "`n`n==== UAC checks start ====`n"
 $reg_path = "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
 if ($configure) {hiveBackup -prefix "UAC" -hivePath $reg_path}
 
 RegistryHardening -reg_path $reg_path -name "EnableLUA" -val_should "1" `
 -description "Require UAC"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\User Account Control: Run all administrators in Admin Approval Mode" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tUser Account Control: Run all administrators in Admin Approval Mode" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -202,7 +221,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "FilterAdministratorToken" -val_should "1" `
 -description "Any operation that requires elevation of privilege will prompt user"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\User Account Control: Admin Approval Mode for the Built-in Administrator account" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tUser Account Control: Admin Approval Mode for the Built-in Administrator account" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -210,7 +230,8 @@ $localPolicy = $false}
 RegistryHardening -reg_path $reg_path -name "ConsentPromptBehaviorAdmin" -val_should "4" `
 -description "Require UAC for every binary, not only non-Microsoft"
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
-Write-Host "`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\User Account Control: Behavior of the elevation prompt for administrators in Admin Approval Mode" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Windows Settings\Security Settings\Local Policies\Security Options\" -ForegroundColor Cyan
+Write-Host "`t`tUser Account Control: Behavior of the elevation prompt for administrators in Admin Approval Mode" -ForegroundColor Cyan
 Write-Host "`tValue should be: Prompt for consent" -ForegroundColor Cyan
 $localPolicy = $false}
 
@@ -220,11 +241,11 @@ RegistryHardening -reg_path $reg_path -name "LocalAccountTokenFilterPolicy" -val
 $localPolicy = $false
 
 # ==========================================================
-# ==== NTP ====
+# ==== NTP checks start ====
 
-Write-Host "`n`n==== NTP  ====`n"
+Write-Host "`n`n==== NTP checks start ====`n"
 
-$ntp_source = ((w32tm /query /status | findstr Source) -replace 'Source: ','') -replace ',0x.',''
+$ntp_source = (w32tm /query /status | findstr ReferenceId).Split(':')[2].replace(')','')
 Write-Host "`n[!] Actual NTP source: $ntp_source"
 
 $ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
@@ -244,7 +265,6 @@ if ($ntp_setting -match "time.windows.com") {
     if ($setup -eq '' -or $setup -ne 'n') {} elif ($setup -eq 'y') {
     $ntpsrv = Read-Host "Please provide NTP server address"
         if ($ntpsrv) {
-                ## TODO
                 
                 w32tm /config /manualpeerlist:"10.10.10.10,0x8" /syncfromflags:MANUAL
                 w32tm /config /update
@@ -262,7 +282,7 @@ if ($ntp_setting -match "time.windows.com") {
 # ==========================================================
 # ==== NetBIOS settings start ====
 
-Write-Host "`n`n==== NetBIOS ====`n"
+Write-Host "`n`n==== NetBIOS checks start ====`n"
 $reg_path = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\NetBT\Parameters\Interfaces"
 if ($configure) {hiveBackup -prefix "NetBIOS" -hivePath $reg_path}
 
@@ -274,9 +294,10 @@ Get-ChildItem Registry::$reg_path | foreach {
     valCheck -val_name $name -val_is $val_is -val_should "2" -val_type "DWORD"
     }
 
+
 # ==========================================================
 # ==== Windows Script Host start ====
-	
+
 Write-Host "`n`n==== Windows Script Host (WHS) ====`n"
 
 $reg_path = "HKLM\Software\Microsoft\Windows Script Host\Settings"
@@ -291,10 +312,11 @@ if ($configure) {hiveBackup -prefix "WHS_HKCU" -hivePath $reg_path}
 RegistryHardening -reg_path $reg_path -name "Enabled" -description `
 "Disable WHS" -val_should "0"
 
+
 # ==========================================================
 # ==== Service settings start ====
 
-Write-Host "`n`n==== Service ====`n"
+Write-Host "`n`n==== Service checks start ====`n"
 
 $reg_path = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\Bowser"
 if ($configure) {hiveBackup -prefix "Services" -hivePath $reg_path}
@@ -302,8 +324,12 @@ if ($configure) {hiveBackup -prefix "Services" -hivePath $reg_path}
 RegistryHardening -reg_path $reg_path -name "Start" -description `
 "Disable 'Computer Browser' service" -val_should "4"
 
+
 # ==========================================================
 # ===== Office Settings =====
+<#
+
+TODO: tune reg export error handling when there no such path!
 
 Write-Host "`n`n==== MS Office Hardening ====`n"
 
@@ -325,6 +351,8 @@ Foreach ($reg_path in $reg_paths) {
 	RegistryHardening -reg_path $reg_path -name "BlockContentExecutionFromInternet" -description `
 	"Block content executiong from Internet for $soft" -val_should "1"
 }
+#>
+
 
 # ASR is supported on at least Windows Server, Windows 10 Version 1709
 # Version 1709 = Build 16299 Revision 1004
@@ -352,6 +380,7 @@ if (([System.Environment]::OSversion.Version | select -ExpandProperty Build) -ge
 
 	}
 }
+
 
 # ==========================================================
 # ===== Optional Settings =====
@@ -382,10 +411,10 @@ Write-Host "`n`n==== Cached credential check ====`n"
 Write-Host "[!] Are there unauthorized or unnecessary content in credential manager?" -ForegroundColor Yellow
 cmd /c "cmdkey /list"
 if ($configure) {
-    Write-Host "[?] Do you want to remove something from credential manager? [y/N]" -ForegroundColor Yellow -NoNewline
+    Write-Host "`t[?] Do you want to remove something from credential manager? [y/N]" -ForegroundColor Yellow -NoNewline
     $read = Read-Host
     if ($read -eq 'y') {
-        Write-Host "[!] Spawning Key Manager console..." -ForegroundColor Yellow
+        Write-Host "`t[!] Spawning Key Manager console..." -ForegroundColor Yellow
         cmd /c "RunDll32.exe keymgr.dll,KRShowKeyMgr"
     } elseif ($read -eq 'n' -or $read.Length -eq 0) {} else {
         Write-Host "[-] Didn't understand your input. Continuing..." -ForegroundColor Red
@@ -403,7 +432,7 @@ $disablepsv2 = $false
 Get-WindowsOptionalFeature -Online -ErrorAction Stop | where {$_.FeatureName -match "powershellv2"} | `
 foreach {
 	if ($_.State -eq "Enabled") {
-        if ($hitonce) {} else {
+         if ($hitonce) {} else {
 		$hitonce = $true
 		Write-Host "`t[-] Powershellv2 is Enabled...." -ForegroundColor Red
 		if ($configure) {
@@ -418,6 +447,10 @@ foreach {
 		        	$disablepsv2 = $false
 	        } }
         }
+    } else {
+        if (!$hitonce) {
+        Write-Host "`t[+] PowerShell v2 is Disabled!" -ForegroundColor Green }
+        $hitonce = $true
     }
 }
 } catch { 
@@ -430,16 +463,9 @@ if ($configure -and $disablepsv2) {
     foreach {
         $name = $_| select -expandProperty FeatureName
         #Enable-WindowsOptionalFeature -Online -FeatureName $name
-        #Disable-WindowsOptionalFeature -Online -FeatureName $name
+        Disable-WindowsOptionalFeature -Online -FeatureName $name
     }
 }
-
-# ==============================================
-# Applocker Settings?
-# Get-ApplockerPolicy -Xml -Effective
-
-# Additional critical setting verification:
-# https://www.stigviewer.com/stigs
 
 # ==========================================================
 
@@ -453,9 +479,7 @@ use that for all binaries
 1)
 Seatbelt_v472.exe NonstandardServices <etc...>
 
-2) JAWS enumeration?
-
-3)
+2)
 SharpUp: create user with limited rights, add perm to binary, launch check, remove user:
 
 	net user SecurityAudit SecAud123!@# /add
@@ -466,15 +490,30 @@ SharpUp: create user with limited rights, add perm to binary, launch check, remo
 	icacls SharpUp_v472.exe /remove:g SecurityAudit
 	net user SecurityAudit /delete
 	Remove-Item C:\Users\SecurityAudit -Force -recurse
+3) Watson / Sherlock / SessionGopher ....
 
-4) Watson / Sherlock / SessionGopher ....
+4) Disable Spool Service?
+
+5) Applocker Settings?
+Get-ApplockerPolicy -Xml -Effective
+
+6) AV checks:
+At least one AV enabled?
+AV Exceptions 
+(Defender: Get-MpPreference | select ExcludePath,ExcludeProcess,ExcludeExtension)
+
+7)
+may be worth to check PowerShell logging  (or use seatbelt?)
+	ScriptBlock logging, Module Logging, Transcription? 
+	Add as requirement? Create policy?
+
 #>
 
 # ==========================================================
 
 if (!$configure) {
     Write-Host "`n`n`t++++ Script was executed in Audit Only Mode! ++++" -ForegroundColor Yellow
-    Write-Host "`tTo make changes in Registry edit last script line to 'Main -configure'" -ForegroundColor Yellow}
+    Write-Host "`tTo make changes in Registry edit last script line to 'Main -configure'`n" -ForegroundColor Yellow}
 }
 
 Main #-configure
