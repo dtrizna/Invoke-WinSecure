@@ -381,17 +381,15 @@ Write-Host "`n`n==== Cached credential check ====`n"
 
 Write-Host "[!] Are there unauthorized or unnecessary content in credential manager?" -ForegroundColor Yellow
 cmd /c "cmdkey /list"
-
-
-Write-Host "[?] Do you want to remove something from credential manager? [y/N]" -ForegroundColor Yellow -NoNewLine
-$readcred = Read-Host
-if ($readcred -eq 'y') {
-    Write-Host "[!] Spawning Key Manager console..." -ForegroundColor Yellow
-    cmd /c "RunDll32.exe keymgr.dll,KRShowKeyMgr"
-} elseif ($readcred -eq 'n' -or $read.Length -eq 0) {
-    Continue
-} else {
-    Write-Host "[-] Didn't understand your input. Continuing..." -ForegroundColor Red
+if ($configure) {
+    Write-Host "[?] Do you want to remove something from credential manager? [y/N]" -ForegroundColor Yellow -NoNewline
+    $read = Read-Host
+    if ($read -eq 'y') {
+        Write-Host "[!] Spawning Key Manager console..." -ForegroundColor Yellow
+        cmd /c "RunDll32.exe keymgr.dll,KRShowKeyMgr"
+    } elseif ($read -eq 'n' -or $read.Length -eq 0) {} else {
+        Write-Host "[-] Didn't understand your input. Continuing..." -ForegroundColor Red
+    }
 }
 
 # ==========================================================
