@@ -406,18 +406,18 @@ Get-WindowsOptionalFeature -Online -ErrorAction Stop | where {$_.FeatureName -ma
 foreach {
 	if ($_.State -eq "Enabled") {
         if ($hitonce) {} else {
-		    $hitonce = $true
-            Write-Host "`t[-] Powershellv2 is Enabled...." -ForegroundColor Red
-		    if ($configure) {
-            Write-Host "`t[?] Do you want to Disable it? [y/N]" -ForegroundColor Yellow -NoNewLine
-		    $readps = Read-Host
-	        if ($readps -eq 'y') {
-    		    $disablepsv2 = $true
-    	    } elseif ($readps -eq 'n' -or $readps.Length -eq 0) {
-                $disablepsv2 = $false
-	        } else {
-                Write-Host "`t[-] Didn't understand your input. Doing nothing..." -ForegroundColor Red
-		        $disablepsv2 = $false
+		$hitonce = $true
+		Write-Host "`t[-] Powershellv2 is Enabled...." -ForegroundColor Red
+		if ($configure) {
+            		Write-Host "`t[?] Do you want to Disable it? [y/N]" -ForegroundColor Yellow -NoNewLine
+		    	$readps = Read-Host
+	        	if ($readps -eq 'y') {
+    		    		$disablepsv2 = $true
+    	    		} elseif ($readps -eq 'n' -or $readps.Length -eq 0) {
+                		$disablepsv2 = $false
+	        	} else {
+                		Write-Host "`t[-] Didn't understand your input. Doing nothing..." -ForegroundColor Red
+		        	$disablepsv2 = $false
 	        } }
         }
     }
