@@ -399,6 +399,9 @@ if ($read -eq 'y') {
 # Applocker Settings?
 # Get-ApplockerPolicy -Xml -Effective
 
+# Additional critical setting verification:
+# https://www.stigviewer.com/stigs
+
 # ==========================================================
 
 # TODO binary checks
