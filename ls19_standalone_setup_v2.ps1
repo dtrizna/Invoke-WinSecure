@@ -383,19 +383,60 @@ Write-Host "[!] Are there unauthorized or unnecessary content in credential mana
 cmd /c "cmdkey /list"
 
 
-Write-Host "[?] Do you want to remove something from credential manager? [y/N]" -ForegroundColor Yellow -NoNewline
-$read = Read-Host
-if ($read -eq 'y') {
+Write-Host "[?] Do you want to remove something from credential manager? [y/N]" -ForegroundColor Yellow -NoNewLine
+$readcred = Read-Host
+if ($readcred -eq 'y') {
     Write-Host "[!] Spawning Key Manager console..." -ForegroundColor Yellow
     cmd /c "RunDll32.exe keymgr.dll,KRShowKeyMgr"
-} elseif ($read -eq 'n' -or $read.Length -eq 0) {
+} elseif ($readcred -eq 'n' -or $read.Length -eq 0) {
     Continue
 } else {
     Write-Host "[-] Didn't understand your input. Continuing..." -ForegroundColor Red
 }
 
 # ==========================================================
+# ==== PowerShell version 2 =====
 
+Write-Host "`n`n==== PowerShell version 2 check ====`n"
+# Need Elevated context
+try {
+$hitonce = $false
+$disablepsv2 = $false
+Get-WindowsOptionalFeature -Online -ErrorAction Stop | where {$_.FeatureName -match "powershellv2"} | `
+foreach {
+	if ($_.State -eq "Enabled") {
+        if ($hitonce) {} else {
+		    $hitonce = $true
+            Write-Host "`t[-] Powershellv2 is Enabled...." -ForegroundColor Red
+		    if ($configure) {
+            Write-Host "`t[?] Do you want to Disable it? [y/N]" -ForegroundColor Yellow -NoNewLine
+		    $readps = Read-Host
+	        if ($readps -eq 'y') {
+    		    $disablepsv2 = $true
+    	    } elseif ($readps -eq 'n' -or $readps.Length -eq 0) {
+                $disablepsv2 = $false
+	        } else {
+                Write-Host "`t[-] Didn't understand your input. Doing nothing..." -ForegroundColor Red
+		        $disablepsv2 = $false
+	        } }
+        }
+    }
+}
+} catch { 
+	Write-Host "`t[-] Cannot access setting. For this option need Administrator rights." -ForegroundColor Red
+}
+
+if ($configure -and $disablepsv2) {
+    Write-Host "`n`t[+] Disabling PowerShell version 2..." -ForegroundColor Green
+    Get-WindowsOptionalFeature -Online -ErrorAction Stop | where {$_.FeatureName -match "powershellv2"} | `
+    foreach {
+        $name = $_| select -expandProperty FeatureName
+        #Enable-WindowsOptionalFeature -Online -FeatureName $name
+        #Disable-WindowsOptionalFeature -Online -FeatureName $name
+    }
+}
+
+# ==============================================
 # Applocker Settings?
 # Get-ApplockerPolicy -Xml -Effective
 
