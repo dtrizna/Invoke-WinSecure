@@ -506,9 +506,9 @@ AV Exceptions
 may be worth to check PowerShell logging  (or use seatbelt?)
 	ScriptBlock logging, Module Logging, Transcription? 
 	Add as requirement? Create policy?
-
+	! Read PS Blue Team blogpost ! 
 #>
-
+Write-Host "test"
 # ==========================================================
 
 if (!$configure) {
