@@ -240,44 +240,6 @@ RegistryHardening -reg_path $reg_path -name "LocalAccountTokenFilterPolicy" -val
 -description "UAC restrictions on the network. This mechanism helps prevent against 'loopback' attacks"
 $localPolicy = $false
 
-# ==========================================================
-# ==== NTP checks start ====
-
-Write-Host "`n`n==== NTP checks start ====`n"
-
-$ntp_source = (w32tm /query /status | findstr ReferenceId).Split(':')[2].replace(')','')
-Write-Host "`n[!] Actual NTP source: $ntp_source"
-
-$ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
- | Select-Object -ExpandProperty NtpServer) -Replace ',0x.',''
-Write-Host "`n[!] Local NTP settings:" -NoNewline
-Write-Host "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -ForegroundColor Gray
-
-if ($ntp_setting -match "time.windows.com") {
-    Write-Host "`t[-] Default value: time.windows.com" -ForegroundColor Red
-    Write-Host "`t[!] If actual NTP source is correct - domain settings are in place."
-    Write-Host "`t[!] But it's still better to set up NTP server manually."
-	Write-Host "`t`tw32tm /config /manualpeerlist:""10.10.1.10,0x8 10.10.10.2,0x8"" /syncfromflags:MANUAL`n`t`tw32tm /config /update`n`t`tw32tm /resync" -ForegroundColor Cyan
-	
-    # TODO NTP SETTINGS ?
-    <#
-    $setup = Read-Host "Would you like to setup correct local NTP settings? [y/N]"
-    if ($setup -eq '' -or $setup -ne 'n') {} elif ($setup -eq 'y') {
-    $ntpsrv = Read-Host "Please provide NTP server address"
-        if ($ntpsrv) {
-                
-                w32tm /config /manualpeerlist:"10.10.10.10,0x8" /syncfromflags:MANUAL
-                w32tm /config /update
-                w32tm /resync
-                
-                Again query - correct now?:
-                $ntp_source = ((w32tm /query /status | findstr Source) -replace 'Source: ','') -replace ',0x.',''
-        }
-     }#>
-
-} else {
-    Write-Host "`t[+] $ntp_setting" -ForegroundColor Green
-}
 
 # ==========================================================
 # ==== NetBIOS settings start ====
@@ -467,7 +429,7 @@ if ($configure -and $disablepsv2) {
     }
 }
 
-Write-Host "`n`n==== PowerShell ScriptBlock check ====`n"
+Write-Host "`n`n==== PowerShell ScriptBlock checks ====`n"
 
 $localPolicy = $false
 $reg_path = "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging"
@@ -484,6 +446,46 @@ $localPolicy = $false}
 
 RegistryHardening -reg_path $reg_path -name "EnableScriptBlockInvocationLogging" -description `
 "Verifying if ScriptBlock Logging is enabled for every invocation call" -val_should "1"
+
+
+# ==========================================================
+# ==== NTP checks start ====
+
+Write-Host "`n`n==== NTP checks start ====`n"
+
+$ntp_source = (w32tm /query /status | findstr ReferenceId).Split(':')[2].replace(')','')
+Write-Host "`n[!] Actual NTP source: $ntp_source"
+
+$ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
+ | Select-Object -ExpandProperty NtpServer) -Replace ',0x.',''
+Write-Host "`n[!] Local NTP settings:" -NoNewline
+Write-Host "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -ForegroundColor Gray
+
+if ($ntp_setting -match "time.windows.com") {
+    Write-Host "`t[-] Default value: time.windows.com" -ForegroundColor Red
+    Write-Host "`t[!] If actual NTP source is correct - domain settings are in place."
+    Write-Host "`t[!] But it's still better to set up NTP server manually."
+	Write-Host "`t`tw32tm /config /manualpeerlist:""10.10.1.10,0x8 10.10.10.2,0x8"" /syncfromflags:MANUAL`n`t`tw32tm /config /update`n`t`tw32tm /resync" -ForegroundColor Cyan
+	
+    # TODO NTP SETTINGS ?
+    <#
+    $setup = Read-Host "Would you like to setup correct local NTP settings? [y/N]"
+    if ($setup -eq '' -or $setup -ne 'n') {} elif ($setup -eq 'y') {
+    $ntpsrv = Read-Host "Please provide NTP server address"
+        if ($ntpsrv) {
+                
+                w32tm /config /manualpeerlist:"10.10.10.10,0x8" /syncfromflags:MANUAL
+                w32tm /config /update
+                w32tm /resync
+                
+                Again query - correct now?:
+                $ntp_source = ((w32tm /query /status | findstr Source) -replace 'Source: ','') -replace ',0x.',''
+        }
+     }#>
+
+} else {
+    Write-Host "`t[+] $ntp_setting" -ForegroundColor Green
+}
 
 # ==========================================================
 
