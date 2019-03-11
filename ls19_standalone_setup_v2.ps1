@@ -467,6 +467,24 @@ if ($configure -and $disablepsv2) {
     }
 }
 
+Write-Host "`n`n==== PowerShell ScriptBlock check ====`n"
+
+$localPolicy = $false
+$reg_path = "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging"
+if ($configure) {hiveBackup -prefix "Powershell_ScriptBlock" -hivePath $reg_path}
+
+RegistryHardening -reg_path $reg_path -name "EnableScriptBlockLogging" -description `
+"Veifying if ScriptBlock Logging enabled" -val_should "1" 
+if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
+Write-Host "`t`t>> Computer Configuration\Administrative Templates\Windows Components\Windows Powershell" -ForegroundColor Cyan
+Write-Host "`t`tTun on PowerShell Script Block Logging" -ForegroundColor Cyan
+Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
+$localPolicy = $false}
+
+
+RegistryHardening -reg_path $reg_path -name "EnableScriptBlockInvocationLogging" -description `
+"Verifying if ScriptBlock Logging is enabled for every invocation call" -val_should "1"
+
 # ==========================================================
 
 # TODO binary checks
