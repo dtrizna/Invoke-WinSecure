@@ -388,6 +388,7 @@ if ($configure) {
 
 Write-Host "`n`n==== PowerShell version 2 check ====`n"
 # Need Elevated context
+
 try {
 $hitonce = $false
 $disablepsv2 = $false
@@ -435,6 +436,10 @@ $localPolicy = $false
 $reg_path = "HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging"
 if ($configure) {hiveBackup -prefix "Powershell_ScriptBlock" -hivePath $reg_path}
 
+# Path may not exist in registry - should create then.
+new-item -Path Registry::HKLM\Software\Policies\Microsoft\Windows\PowerShell\ -ErrorAction SilentlyContinue
+new-item -Path Registry::HKLM\Software\Policies\Microsoft\Windows\PowerShell\ScriptBlockLogging -ErrorAction SilentlyContinue
+
 RegistryHardening -reg_path $reg_path -name "EnableScriptBlockLogging" -description `
 "Veifying if ScriptBlock Logging enabled" -val_should "1" 
 if ($localPolicy) { Write-Host "`t[!] May be setting is made via Group Policy? Check:" -ForegroundColor Cyan
@@ -443,9 +448,30 @@ Write-Host "`t`tTun on PowerShell Script Block Logging" -ForegroundColor Cyan
 Write-Host "`t[!] Value should be: Enabled" -ForegroundColor Cyan
 $localPolicy = $false}
 
-
 RegistryHardening -reg_path $reg_path -name "EnableScriptBlockInvocationLogging" -description `
 "Verifying if ScriptBlock Logging is enabled for every invocation call" -val_should "1"
+
+
+#	Write-Host "`n`n==== PowerShell Module Logging checks ====`n"
+#      HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging → EnableModuleLogging = 1
+#      HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\ModuleLogging \ModuleNames → * = *
+
+#	Write-Host "`n`n==== PowerShell Transcription Logging checks ====`n"
+#       HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription → EnableTranscripting = 1
+#       HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription → EnableInvocationHeader = 1
+#       HKLM\SOFTWARE\Wow6432Node\Policies\Microsoft\Windows\PowerShell\Transcription → OutputDirectory = “” (Enter path. Empty = default)
+
+# ==========================================================
+# ==== Defender Exclusions ====
+
+Write-Host "`n`n==== Defender Exclusions ====`n"
+
+Write-Host "[!] Paths:" -ForegroundColor Cyan
+Get-MpPreference | select -expandproperty ExclusionPath
+Write-Host "`n[!] Processes:" -ForegroundColor Cyan
+Get-MpPreference | select -expandproperty ExclusionProcess
+Write-Host "`n[!] Extensions:" -ForegroundColor Cyan
+Get-MpPreference | select -expandproperty ExclusionExtension
 
 
 # ==========================================================
@@ -453,19 +479,24 @@ RegistryHardening -reg_path $reg_path -name "EnableScriptBlockInvocationLogging"
 
 Write-Host "`n`n==== NTP checks start ====`n"
 
-$ntp_source = (w32tm /query /status | findstr ReferenceId).Split(':')[2].replace(')','')
-Write-Host "`n[!] Actual NTP source: $ntp_source"
+$ntp_check = cmd /c "w32tm /query /status"
+if ($ntp_check.Contains('error')) {
+	Write-Host "`n[-] Error occured while querying NTP configuration. Is 'W32Time' service running?" -ForegroundColor Red
+}
+else{
+	$ntp_source = ($ntp_check | Select-String "ReferenceId").ToString().Split(':')[2].replace(')','')
+	Write-Host "`n[!] Actual NTP source: $ntp_source"
 
-$ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
- | Select-Object -ExpandProperty NtpServer) -Replace ',0x.',''
-Write-Host "`n[!] Local NTP settings:" -NoNewline
-Write-Host "HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -ForegroundColor Gray
+	$ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
+	| Select-Object -ExpandProperty NtpServer) -Replace ',0x.',''
+	Write-Host "`n[!] Local NTP settings:" -NoNewline
+	Write-Host " HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -ForegroundColor Gray
 
-if ($ntp_setting -match "time.windows.com") {
-    Write-Host "`t[-] Default value: time.windows.com" -ForegroundColor Red
-    Write-Host "`t[!] If actual NTP source is correct - domain settings are in place."
-    Write-Host "`t[!] But it's still better to set up NTP server manually."
-	Write-Host "`t`tw32tm /config /manualpeerlist:""10.10.1.10,0x8 10.10.10.2,0x8"" /syncfromflags:MANUAL`n`t`tw32tm /config /update`n`t`tw32tm /resync" -ForegroundColor Cyan
+	if ($ntp_setting -match "time.windows.com") {
+		Write-Host "`t[-] Default value: time.windows.com" -ForegroundColor Red
+		Write-Host "`t[!] If actual NTP source is correct - domain settings are in place."
+		Write-Host "`t[!] But it's still better to set up NTP server manually."
+		Write-Host "`t`tw32tm /config /manualpeerlist:""10.10.1.10,0x8 10.10.10.2,0x8"" /syncfromflags:MANUAL`n`t`tw32tm /config /update`n`t`tw32tm /resync" -ForegroundColor Cyan
 	
     # TODO NTP SETTINGS ?
     <#
@@ -483,8 +514,9 @@ if ($ntp_setting -match "time.windows.com") {
         }
      }#>
 
-} else {
-    Write-Host "`t[+] $ntp_setting" -ForegroundColor Green
+	} else {
+		Write-Host "`t[+] $ntp_setting" -ForegroundColor Green
+	}
 }
 
 # ==========================================================
@@ -517,18 +549,7 @@ SharpUp: create user with limited rights, add perm to binary, launch check, remo
 5) Applocker Settings?
 Get-ApplockerPolicy -Xml -Effective
 
-6) AV checks:
-At least one AV enabled?
-AV Exceptions 
-(Defender: Get-MpPreference | select ExcludePath,ExcludeProcess,ExcludeExtension)
-
-7)
-may be worth to check PowerShell logging  (or use seatbelt?)
-	ScriptBlock logging, Module Logging, Transcription? 
-	Add as requirement? Create policy?
-	! Read PS Blue Team blogpost ! 
 #>
-Write-Host "test"
 # ==========================================================
 
 if (!$configure) {
