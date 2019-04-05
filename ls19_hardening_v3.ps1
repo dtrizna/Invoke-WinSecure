@@ -1,4 +1,4 @@
-# ==== Helper Function definition ====
+﻿# ==== Helper Function definition ====
 
 function SetRegValue {
     Param (
@@ -253,8 +253,8 @@ Write-Host "`n[!] Perorming checks for every interface:"
 Get-ChildItem Registry::$reg_path | foreach { 
     write-host "`n$_" -ForegroundColor Gray
     $val_is = CheckRegValue -path "$_" -name $name
-    valCheck -val_name $name -val_is $val_is -val_should "2" -val_type "DWORD"
-    }
+    valCheck -val_name $name -val_is $val_is -val_should 2 -val_type "DWORD"
+}
 
 
 # ==========================================================
@@ -280,12 +280,13 @@ RegistryHardening -reg_path $reg_path -name "Enabled" -description `
 
 Write-Host "`n`n==== Service checks start ====`n"
 
+<#
 $reg_path = "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\Bowser"
 if ($configure) {hiveBackup -prefix "Services" -hivePath $reg_path}
 
 RegistryHardening -reg_path $reg_path -name "Start" -description `
 "Disable 'Computer Browser' service" -val_should "4"
-
+#>
 
 # ==========================================================
 # ===== Office Settings =====
@@ -328,20 +329,25 @@ if (([System.Environment]::OSversion.Version | select -ExpandProperty Build) -ge
 		Write-Host "`t[-] No ASR rules are enabled..." -ForegroundColor Red
 	}
 	if ($configure) {
+
 		Write-Host "`t[+] Enabling most useful ASR rules:" -ForegroundColor Yellow
-	
+		
+		try {	
 		Write-Host "`t- Block all Office applications from creating child processes." -ForegroundColor Cyan
-		Add-MpPreference -AttackSurfaceReductionRules_Ids D4F940AB-401B-4EFC-AADC-AD5F3C50688A -AttackSurfaceReductionRules_Actions Enabled
+		Add-MpPreference -AttackSurfaceReductionRules_Ids D4F940AB-401B-4EFC-AADC-AD5F3C50688A -AttackSurfaceReductionRules_Actions Enabled -ErrorAction Stop
 		
 		Write-Host "`t- Block Office applications from creating executable content." -ForegroundColor Cyan
-		Add-MpPreference -AttackSurfaceReductionRules_Ids 3B576869-A4EC-4529-8536-B80A7769E899 -AttackSurfaceReductionRules_Actions Enabled
+		Add-MpPreference -AttackSurfaceReductionRules_Ids 3B576869-A4EC-4529-8536-B80A7769E899 -AttackSurfaceReductionRules_Actions Enabled -ErrorAction Stop
 		
-		Write-Host "`- tBlock process creations originating from PSExec and WMI commands." -ForegroundColor Cyan
-		Add-MpPreference -AttackSurfaceReductionRules_Ids d1e49aac-8f56-4280-b9ba-993a6d77406c -AttackSurfaceReductionRules_Actions Enabled
+		Write-Host "`t- Block process creations originating from PSExec and WMI commands." -ForegroundColor Cyan
+		Add-MpPreference -AttackSurfaceReductionRules_Ids d1e49aac-8f56-4280-b9ba-993a6d77406c -AttackSurfaceReductionRules_Actions Enabled -ErrorAction Stop
 		
 		Write-Host "`t- Block credential stealing from the Windows local security authority subsystem." -ForegroundColor Cyan
-		Add-MpPreference -AttackSurfaceReductionRules_Ids 9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2 -AttackSurfaceReductionRules_Actions Enabled
-
+		Add-MpPreference -AttackSurfaceReductionRules_Ids 9e6c4e1f-7d60-472f-ba1a-a39ef669e4b2 -AttackSurfaceReductionRules_Actions Enabled -ErrorAction Stop
+		}
+		catch {
+			Write-Host "`t[-] Exception during ASR rule configuration. Check manually if Windows supports them?" -ForegroundColor Red
+		}
 	}
 }
 
@@ -460,7 +466,6 @@ RegistryHardening -reg_path $reg_path -name "EnableScriptBlockInvocationLogging"
 #$prop.MaxLogSize = 250000000
 # Set-LogProperties $prop
 
-
 # Optional Logging setup
 <#
 #	Write-Host "`n`n==== PowerShell Transcription Logging checks ====`n"
@@ -488,27 +493,36 @@ Get-MpPreference | select -expandproperty ExclusionExtension
 Write-Host "`n`n==== NTP checks start ====`n"
 
 $ntp_check = cmd /c "w32tm /query /status"
-try{
 
-    if ($ntp_check.Contains('error') -or ($ntp_check | select-string 'Reference' -ErrorAction stop).tostring().contains('unspecified')) {
-	    Write-Host "`n[-] Error occured while querying NTP configuration. Is 'W32Time' service running?" -ForegroundColor Red 
+try {
+	$unspecified = ($ntp_check | select-string 'Reference' -ErrorAction stop).tostring().contains('unspecified')
+	$error = $ntp_check.Contains('error')
+	$ntp_source = ($ntp_check | Select-String "ReferenceId" -ErrorAction stop).ToString().Split(':')[2].replace(')','')
+	if ($error) {
+		Write-Host "`n[-] Error occured while querying NTP configuration. Is 'W32Time' service running?" -ForegroundColor Red 
 		Write-Host "`n[-] Verify settings manually: w32tm /query /status" -ForegroundColor Red }
-    else{
-	
-    $ntp_source = ($ntp_check | Select-String "ReferenceId").ToString().Split(':')[2].replace(')','')
-	Write-Host "`n[!] Actual NTP source: $ntp_source"
+	elseif ($unspecified) { 
+		Write-Host "`n[!] No NTP server connectivity. Network access!?" -ForegroundColor Red }
+	else {
+		Write-Host "`n[!] Actual NTP source: $ntp_source" }
+}
+catch { Write-Host "`n[-] Cannot parse 'w32tm /query /status' response.. Check manually!" -ForegroundColor Red }
 
-	$ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
-	| Select-Object -ExpandProperty NtpServer) -Replace ',0x.',''
-	Write-Host "`n[!] Local NTP settings:" -NoNewline
-	Write-Host " HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -ForegroundColor Gray
 
-	if ($ntp_setting -match "time.windows.com") {
-		Write-Host "`t[-] Default value: time.windows.com" -ForegroundColor Red
-		Write-Host "`t[!] If actual NTP source is correct - domain settings are in place."
-		Write-Host "`t[!] But it's still better to set up NTP server manually."
-		Write-Host "`t`tw32tm /config /manualpeerlist:""10.10.1.10,0x8 10.10.10.2,0x8"" /syncfromflags:MANUAL`n`t`tw32tm /config /update`n`t`tw32tm /resync" -ForegroundColor Cyan
-	
+$ntp_setting = (Get-ItemProperty Registry::HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters -Name NtpServer `
+| Select-Object -ExpandProperty NtpServer) -Replace ',0x.',''
+Write-Host "`n[!] Local NTP settings:" -NoNewline
+Write-Host " HKLM\SYSTEM\CurrentControlSet\Services\W32Time\Parameters" -ForegroundColor Gray
+
+if ($ntp_setting -match "time.windows.com") {
+	Write-Host "`t[-] Default value: time.windows.com" -ForegroundColor Red
+	Write-Host "`t[!] If previous checks returned correct NTP server - domain settings are in place."
+	Write-Host "`t[!] But it's still better to set up NTP server manually."
+	Write-Host "`t`tw32tm /config /manualpeerlist:""10.10.1.10,0x8 10.10.10.2,0x8"" /syncfromflags:MANUAL`n`t`tw32tm /config /update`n`t`tw32tm /resync" -ForegroundColor Cyan
+} else {
+	Write-Host "`t[+] $ntp_setting" -ForegroundColor Green
+}
+
     # TODO NTP SETTINGS ?
     <#
     $setup = Read-Host "Would you like to setup correct local NTP settings? [y/N]"
@@ -522,15 +536,9 @@ try{
                 
                 Again query - correct now?:
                 $ntp_source = ((w32tm /query /status | findstr Source) -replace 'Source: ','') -replace ',0x.',''
-        }
-     }#>
+	} #>
 
-	} else {
-		Write-Host "`t[+] $ntp_setting" -ForegroundColor Green
-	}
-    }
-}
-catch { Write-Host "`n[-] Error occured while querying NTP configuration. Is 'W32Time' service running?" -ForegroundColor Red }
+
 
 # ==========================================================
 
