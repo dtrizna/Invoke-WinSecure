@@ -1,3 +1,1 @@
-# LockedShields2019
-
-Windows security hardening manipulations for Microsoft infra automation during LS19.
+Was initially written in order to  automate Windows security hardening manipulations for Microsoft infrastructure during LS19.
